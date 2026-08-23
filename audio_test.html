@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Audio Test</title>
+<style>
+  body {
+    background: #eae7e0;
+    color: #2a2825;
+    font-family: -apple-system, "Hiragino Sans", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+  }
+  h1 { font-size: 18px; }
+  button {
+    font-size: 20px;
+    padding: 20px 40px;
+    margin: 20px 0;
+    border-radius: 10px;
+    border: none;
+    background: #c76a3a;
+    color: white;
+  }
+  #log {
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 13px;
+    background: #e5e1d8;
+    border: 1px solid #cfcabd;
+    padding: 12px;
+    width: 100%;
+    max-width: 480px;
+    min-height: 200px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Web Audio 単純テスト</h1>
+<p>下のボタンを押すと、1秒間の単純な音(440Hz サイン波)が鳴るはずです。<br>
+鳴らなくても、下のログに状態が表示されます。そのログの内容を教えてください。</p>
+<button id="btn">音を鳴らす (Play tone)</button>
+<div id="log">(ここにログが出ます)</div>
+
+<script>
+const logEl = document.getElementById("log");
+function log(msg) {
+  logEl.textContent += msg + "\n";
+}
+
+log("User agent: " + navigator.userAgent);
+log("AudioContext available: " + !!(window.AudioContext || window.webkitAudioContext));
+
+document.getElementById("btn").addEventListener("click", function() {
+  logEl.textContent = "";
+  log("ボタンが押されました (click event fired)");
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    log("AudioContext created. state = " + ctx.state);
+    log("sampleRate = " + ctx.sampleRate);
+
+    ctx.resume().then(function() {
+      log("ctx.resume() resolved. state = " + ctx.state);
+    }).catch(function(e) {
+      log("ctx.resume() ERROR: " + e);
+    });
+
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = 440;
+
+    const gain = ctx.createGain();
+    gain.gain.value = 0.3;
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    log("oscillator started");
+
+    osc.stop(ctx.currentTime + 1);
+    osc.onended = function() {
+      log("oscillator ended (played for ~1 second)");
+      log("final AudioContext state = " + ctx.state);
+    };
+  } catch (e) {
+    log("EXCEPTION: " + e.name + " - " + e.message);
+  }
+});
+</script>
+
+</body>
+</html>
