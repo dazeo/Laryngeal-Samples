@@ -252,8 +252,8 @@ function handleStart(evt) {
   try {
     ensureAudio();
     log("  after ensureAudio: ctx.state=" + ctx.state);
-    if (ctx.state === "suspended") {
-      log("  ctx suspended, calling resume()...");
+    if (ctx.state !== "running") {
+      log("  ctx not running (" + ctx.state + "), calling resume()...");
       ctx.resume().then(() => log("  resume() resolved. new state=" + ctx.state))
                    .catch(e => log("  resume() REJECTED: " + e));
     }
