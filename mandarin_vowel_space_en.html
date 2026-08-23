@@ -181,7 +181,7 @@ tbl.innerHTML = "<tr><th>vowel</th><th>pinyin</th><th>F1 (Hz)</th><th>F2 (Hz)</t
 
 // ---- Audio: fixed fundamental (sawtooth) through two parallel bandpass
 // filters tuned to F1/F2 — same principle as the Laryngeal app. ----
-let ctx, osc, gainMaster, filter1, filter2, compressor, makeupGain, started = false;
+let ctx, osc, gainMaster, filter1, filter2, started = false;
 
 function ensureAudio() {
   if (started) return;
@@ -202,26 +202,11 @@ function ensureAudio() {
   filter2.type = "bandpass";
   filter2.Q.value = 12;
 
-  // Compressor + makeup gain: keeps the sharp Q=12 formant color (good tone)
-  // but brings up the quiet moments (when no harmonic happens to fall inside
-  // the narrow passband) so the result stays audible on quiet phone speakers.
-  compressor = ctx.createDynamicsCompressor();
-  compressor.threshold.value = -50;
-  compressor.knee.value = 10;
-  compressor.ratio.value = 20;
-  compressor.attack.value = 0.003;
-  compressor.release.value = 0.25;
-
-  makeupGain = ctx.createGain();
-  makeupGain.gain.value = 3.5;
-
   osc.connect(filter1);
   osc.connect(filter2);
   filter1.connect(gainMaster);
   filter2.connect(gainMaster);
-  gainMaster.connect(compressor);
-  compressor.connect(makeupGain);
-  makeupGain.connect(ctx.destination);
+  gainMaster.connect(ctx.destination);
 
   osc.start();
   started = true;
