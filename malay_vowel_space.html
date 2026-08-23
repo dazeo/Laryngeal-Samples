@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Malay Vowel Space — F1/F2 Prototype</title>
+<style>
+  body {
+    background: #eae7e0;
+    color: #2a2825;
+    font-family: -apple-system, "Hiragino Sans", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+  }
+  h1 { font-size: 18px; letter-spacing: 0.05em; margin-bottom: 4px; }
+  p.sub { color: #7a7568; font-size: 13px; margin-top: 0; margin-bottom: 28px; }
+  #pad {
+    width: 480px;
+    height: 480px;
+    background: #e5e1d8;
+    border: 1px solid #cfcabd;
+    position: relative;
+  }
+  .vpoint {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #6b6558;
+    transform: translate(-50%, -50%);
+  }
+  .vpoint.schwa {
+    background: #b5622f;
+  }
+  .vlabel {
+    position: absolute;
+    font-size: 15px;
+    transform: translate(-50%, -160%);
+    color: #4a463d;
+  }
+  .vlabel.schwa { color: #b5622f; }
+  svg#lines { position: absolute; top:0; left:0; width:100%; height:100%; }
+  #cursor {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #c76a3a;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+  #cursor.active { opacity: 0.85; }
+  #pad { touch-action: none; cursor: pointer; }
+  #hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #a29c8c;
+  }
+  #legend {
+    margin-top: 18px;
+    font-size: 12px;
+    color: #7a7568;
+    max-width: 480px;
+    line-height: 1.6;
+  }
+  table { border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+  td, th { padding: 3px 10px; text-align: right; border-bottom: 1px solid #d8d3c6; }
+  th { text-align: right; color: #7a7568; font-weight: normal; }
+  td:first-child, th:first-child { text-align: left; }
+</style>
+</head>
+<body>
+
+<h1>MALAY VOWEL SPACE (prototype)</h1>
+<p class="sub">F1 / F2 based on Jamil, Ramli &amp; Ardi (2019), averaged across Kelantan / Perlis / Terengganu dialects — 8母音版(ε, ɔを含む)</p>
+
+<div id="pad">
+  <svg id="lines"></svg>
+  <div id="cursor"></div>
+</div>
+<p id="hint">パッドを指(またはマウス)でなぞると、その位置のF1/F2で母音の音が鳴ります。</p>
+
+<div id="legend">
+  縦軸 = F1(舌の高さ、上ほど低い/狭母音)、横軸 = F2(舌の前後、左ほど前寄り)。<br>
+  周辺7母音(i, é, ε, a, ɔ, o, u)を結んだ七角形に対して、中舌のシュワー(e, 橙色)は
+  周辺の輪郭には含めず、空間の中央付近の独立した点として表示しています。
+  ε(taling e相当の開いた前舌母音)とɔ(開いた後舌円唇母音)を加えたことで、
+  標準マレー語の音韻体系(6母音)より母音の種類が多い、
+  方言(ここではクランタン・プルリス・トレンガヌ)の実測に基づく8母音体系になっています。
+  <table id="tbl"></table>
+</div>
+
+<script>
+// Mean F1/F2 (Hz), averaged across Kelantan/Perlis/Terengganu
+// Source: Jamil, N., Ramli, I., & Ardi, N. (2019). Formant characteristics of
+// Malay vowels of Perlis, Kelantan and Terengganu. Journal of ICT, 18(4), 529-544.
+const vowels = {
+  i:    { f1: 436.8, f2: 2192.2, schwa: false },
+  "é":  { f1: 528.2, f2: 1856.5, schwa: false }, // taling e /e/
+  "ε":  { f1: 677.5, f2: 1905.7, schwa: false }, // open-mid front (dialectal)
+  a:    { f1: 827.2, f2: 1538.5, schwa: false },
+  "ɔ":  { f1: 667.9, f2: 1304.4, schwa: false }, // open-mid back rounded (dialectal)
+  o:    { f1: 576.9, f2: 1165.6, schwa: false },
+  u:    { f1: 485.4, f2: 1157.6, schwa: false },
+  e:    { f1: 518.9, f2: 1558.0, schwa: true  }, // pepet schwa /ə/
+};
+
+// Same normalization convention as the Laryngeal app
+const F1_MIN = 200, F1_MAX = 900;
+const F2_MIN = 600, F2_MAX = 2600;
+
+function toXY(f1, f2) {
+  const y = (f1 - F1_MIN) / (F1_MAX - F1_MIN);
+  const x = (F2_MAX - f2) / (F2_MAX - F2_MIN);
+  return { x: x * 100, y: y * 100 };
+}
+
+const pad = document.getElementById("pad");
+const svg = document.getElementById("lines");
+const perimeterOrder = ["i", "é", "ε", "a", "ɔ", "o", "u"]; // peripheral vowels only
+
+let points = {};
+for (const key in vowels) {
+  const v = vowels[key];
+  const { x, y } = toXY(v.f1, v.f2);
+  points[key] = { x, y, schwa: v.schwa };
+
+  const dot = document.createElement("div");
+  dot.className = "vpoint" + (v.schwa ? " schwa" : "");
+  dot.style.left = x + "%";
+  dot.style.top = y + "%";
+  pad.appendChild(dot);
+
+  const label = document.createElement("div");
+  label.className = "vlabel" + (v.schwa ? " schwa" : "");
+  label.style.left = x + "%";
+  label.style.top = y + "%";
+  label.textContent = key;
+  pad.appendChild(label);
+}
+
+// draw heptagon connecting the 7 peripheral vowels
+let pathPts = perimeterOrder.map(k => `${points[k].x}%,${points[k].y}%`);
+pathPts.push(pathPts[0]);
+const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+polyline.setAttribute("points", pathPts.map(p => {
+  const [x,y] = p.split(",");
+  return x.replace("%","") * 4.8 + "," + y.replace("%","") * 4.8; // approx px conversion for 480px box
+}).join(" "));
+polyline.setAttribute("fill", "none");
+polyline.setAttribute("stroke", "#a29c8c");
+polyline.setAttribute("stroke-width", "1");
+svg.appendChild(polyline);
+
+// table
+const tbl = document.getElementById("tbl");
+tbl.innerHTML = "<tr><th>vowel</th><th>F1 (Hz)</th><th>F2 (Hz)</th></tr>" +
+  Object.keys(vowels).map(k => {
+    const v = vowels[k];
+    return `<tr><td>${k}${v.schwa ? " (schwa)" : ""}</td><td>${v.f1.toFixed(0)}</td><td>${v.f2.toFixed(0)}</td></tr>`;
+  }).join("");
+
+// ---- Audio: fixed fundamental (sawtooth, source of harmonics) through two
+// parallel bandpass filters tuned to F1/F2 — same principle as the
+// Laryngeal app's ROOT + two formant filters. ----
+let ctx, osc, gainMaster, filter1, filter2, started = false;
+
+function ensureAudio() {
+  if (started) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+  osc = ctx.createOscillator();
+  osc.type = "sawtooth";
+  osc.frequency.value = 110; // fixed fundamental, ~A2
+
+  gainMaster = ctx.createGain();
+  gainMaster.gain.value = 0;
+
+  filter1 = ctx.createBiquadFilter();
+  filter1.type = "bandpass";
+  filter1.Q.value = 12;
+
+  filter2 = ctx.createBiquadFilter();
+  filter2.type = "bandpass";
+  filter2.Q.value = 12;
+
+  osc.connect(filter1);
+  osc.connect(filter2);
+  filter1.connect(gainMaster);
+  filter2.connect(gainMaster);
+  gainMaster.connect(ctx.destination);
+
+  osc.start();
+  started = true;
+}
+
+function fromXY(xPercent, yPercent) {
+  const f1 = F1_MIN + (yPercent / 100) * (F1_MAX - F1_MIN);
+  const f2 = F2_MAX - (xPercent / 100) * (F2_MAX - F2_MIN);
+  return { f1, f2 };
+}
+
+function setFormants(f1, f2) {
+  const now = ctx.currentTime;
+  filter1.frequency.setTargetAtTime(f1, now, 0.02);
+  filter2.frequency.setTargetAtTime(f2, now, 0.02);
+}
+
+const cursor = document.getElementById("cursor");
+let dragging = false;
+
+function pointerToPad(evt) {
+  const rect = pad.getBoundingClientRect();
+  const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+  const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+  let x = ((clientX - rect.left) / rect.width) * 100;
+  let y = ((clientY - rect.top) / rect.height) * 100;
+  x = Math.max(0, Math.min(100, x));
+  y = Math.max(0, Math.min(100, y));
+  return { x, y };
+}
+
+function handleMove(evt) {
+  if (!dragging) return;
+  evt.preventDefault();
+  const { x, y } = pointerToPad(evt);
+  cursor.style.left = x + "%";
+  cursor.style.top = y + "%";
+  const { f1, f2 } = fromXY(x, y);
+  setFormants(f1, f2);
+}
+
+function handleStart(evt) {
+  ensureAudio();
+  if (ctx.state === "suspended") ctx.resume();
+  dragging = true;
+  cursor.classList.add("active");
+  gainMaster.gain.setTargetAtTime(0.25, ctx.currentTime, 0.03);
+  handleMove(evt);
+}
+
+function handleEnd() {
+  if (!dragging) return;
+  dragging = false;
+  cursor.classList.remove("active");
+  if (gainMaster) gainMaster.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
+}
+
+pad.addEventListener("mousedown", handleStart);
+pad.addEventListener("mousemove", handleMove);
+window.addEventListener("mouseup", handleEnd);
+pad.addEventListener("touchstart", handleStart, { passive: false });
+pad.addEventListener("touchmove", handleMove, { passive: false });
+pad.addEventListener("touchend", handleEnd);
+</script>
+
+</body>
+</html>

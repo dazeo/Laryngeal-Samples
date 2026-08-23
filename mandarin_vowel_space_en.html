@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mandarin Chinese Vowel Space — F1/F2 Prototype</title>
+<style>
+  body {
+    background: #eae7e0;
+    color: #2a2825;
+    font-family: -apple-system, "Helvetica Neue", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+  }
+  h1 { font-size: 18px; letter-spacing: 0.05em; margin-bottom: 4px; }
+  p.sub { color: #7a7568; font-size: 13px; margin-top: 0; margin-bottom: 28px; text-align: center; max-width: 520px; }
+  #pad {
+    width: 480px;
+    height: 480px;
+    background: #e5e1d8;
+    border: 1px solid #cfcabd;
+    position: relative;
+  }
+  .vpoint {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #6b6558;
+    transform: translate(-50%, -50%);
+  }
+  .vlabel {
+    position: absolute;
+    font-size: 15px;
+    transform: translate(-50%, -160%);
+    color: #4a463d;
+  }
+  .vlabel .py {
+    display: block;
+    font-size: 11px;
+    color: #a29c8c;
+    text-align: center;
+  }
+  svg#lines { position: absolute; top:0; left:0; width:100%; height:100%; }
+  #cursor {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #c76a3a;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+  #cursor.active { opacity: 0.85; }
+  #pad { touch-action: none; cursor: pointer; }
+  #hint { margin-top: 10px; font-size: 12px; color: #a29c8c; }
+  #legend {
+    margin-top: 18px;
+    font-size: 12px;
+    color: #7a7568;
+    max-width: 520px;
+    line-height: 1.6;
+  }
+  .note {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #ddd7c8;
+    border-left: 3px solid #a29c8c;
+    font-size: 11.5px;
+    color: #5c5748;
+  }
+  table { border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+  td, th { padding: 3px 10px; text-align: right; border-bottom: 1px solid #d8d3c6; }
+  th { text-align: right; color: #7a7568; font-weight: normal; }
+  td:first-child, th:first-child { text-align: left; }
+</style>
+</head>
+<body>
+
+<h1>MANDARIN CHINESE (BEIJING) VOWEL SPACE (prototype)</h1>
+<p class="sub">The six monophthongs of Standard Chinese: i (衣), ü/y (迂), u (乌), e/ɤ (鹅), o (喔), a (啊).
+Typical / representative F1-F2 values — see note below.</p>
+
+<div id="pad">
+  <svg id="lines"></svg>
+  <div id="cursor"></div>
+</div>
+<p id="hint">Trace the pad with your finger (or mouse) to hear the vowel change with F1/F2.</p>
+
+<div id="legend">
+  Vertical axis = F1 (tongue height). Horizontal axis = F2 (tongue front/back).<br><br>
+  All six vowels are peripheral, so they are connected directly into a hexagon (no interior
+  schwa-like point, unlike Malay). Note that /y/ (ü), a close front <em>rounded</em> vowel, sits
+  between /i/ and /u/ in F2 — rounding pulls F2 down relative to unrounded /i/, even though the
+  tongue position is nearly the same. /e/ here represents unrounded [ɤ] (as in 鹅), not the
+  front vowel English speakers may expect from the letter "e" — its F2 is fairly central/back.
+  <table id="tbl"></table>
+  <div class="note">
+    <strong>Note on the data:</strong> unlike the Japanese, Malay, and English pages in this set,
+    these values are not taken from a single measured dataset. Two directly relevant peer-reviewed
+    sources exist — Lee &amp; Zee (2003), "Standard Chinese (Beijing)," <em>Journal of the IPA</em> 33(1)
+    (Cambridge), and Zee &amp; Lee (2001), "An acoustical analysis of the vowels in Beijing Mandarin,"
+    <em>Proc. Eurospeech 2001</em> — but their formant tables are embedded as figures/images in the
+    PDFs and could not be extracted as text in this environment. The values plotted here are
+    typical/representative approximations (rounded, illustrative Hz figures consistent with how
+    Standard Chinese monophthongs are usually described relative to one another) rather than
+    numbers read directly off a specific published table. Treat this page as a structural/pedagogical
+    illustration rather than a precise research-grade plot.
+  </div>
+</div>
+
+<script>
+// Typical / representative F1-F2 (Hz) for Standard Chinese (Beijing) monophthongs.
+// See the note in the page for sourcing caveats.
+const vowels = {
+  i:   { f1: 290, f2: 2300, py: "yī" },
+  "y": { f1: 290, f2: 1800, py: "yū (ü)" },
+  u:   { f1: 300, f2: 750,  py: "wū" },
+  o:   { f1: 480, f2: 800,  py: "ō" },
+  a:   { f1: 800, f2: 1300, py: "ā" },
+  e:   { f1: 500, f2: 1300, py: "é (ɤ)" },
+};
+
+// Same normalization convention as the Laryngeal app
+const F1_MIN = 200, F1_MAX = 900;
+const F2_MIN = 600, F2_MAX = 2600;
+
+function toXY(f1, f2) {
+  const y = (f1 - F1_MIN) / (F1_MAX - F1_MIN);
+  const x = (F2_MAX - f2) / (F2_MAX - F2_MIN);
+  return { x: x * 100, y: y * 100 };
+}
+
+const pad = document.getElementById("pad");
+const svg = document.getElementById("lines");
+const perimeterOrder = ["i", "y", "u", "o", "a", "e"]; // hexagon, all peripheral
+
+let points = {};
+for (const key in vowels) {
+  const v = vowels[key];
+  const { x, y } = toXY(v.f1, v.f2);
+  points[key] = { x, y };
+
+  const dot = document.createElement("div");
+  dot.className = "vpoint";
+  dot.style.left = x + "%";
+  dot.style.top = y + "%";
+  pad.appendChild(dot);
+
+  const label = document.createElement("div");
+  label.className = "vlabel";
+  label.style.left = x + "%";
+  label.style.top = y + "%";
+  label.innerHTML = key + `<span class="py">${v.py}</span>`;
+  pad.appendChild(label);
+}
+
+// draw hexagon connecting the 6 peripheral vowels
+let pathPts = perimeterOrder.map(k => `${points[k].x}%,${points[k].y}%`);
+pathPts.push(pathPts[0]);
+const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+polyline.setAttribute("points", pathPts.map(p => {
+  const [x,y] = p.split(",");
+  return x.replace("%","") * 4.8 + "," + y.replace("%","") * 4.8;
+}).join(" "));
+polyline.setAttribute("fill", "none");
+polyline.setAttribute("stroke", "#a29c8c");
+polyline.setAttribute("stroke-width", "1");
+svg.appendChild(polyline);
+
+// table
+const tbl = document.getElementById("tbl");
+tbl.innerHTML = "<tr><th>vowel</th><th>pinyin</th><th>F1 (Hz)</th><th>F2 (Hz)</th></tr>" +
+  Object.keys(vowels).map(k => {
+    const v = vowels[k];
+    return `<tr><td>${k}</td><td>${v.py}</td><td>${v.f1.toFixed(0)}</td><td>${v.f2.toFixed(0)}</td></tr>`;
+  }).join("");
+
+// ---- Audio: fixed fundamental (sawtooth) through two parallel bandpass
+// filters tuned to F1/F2 — same principle as the Laryngeal app. ----
+let ctx, osc, gainMaster, filter1, filter2, started = false;
+
+function ensureAudio() {
+  if (started) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+  osc = ctx.createOscillator();
+  osc.type = "sawtooth";
+  osc.frequency.value = 110;
+
+  gainMaster = ctx.createGain();
+  gainMaster.gain.value = 0;
+
+  filter1 = ctx.createBiquadFilter();
+  filter1.type = "bandpass";
+  filter1.Q.value = 12;
+
+  filter2 = ctx.createBiquadFilter();
+  filter2.type = "bandpass";
+  filter2.Q.value = 12;
+
+  osc.connect(filter1);
+  osc.connect(filter2);
+  filter1.connect(gainMaster);
+  filter2.connect(gainMaster);
+  gainMaster.connect(ctx.destination);
+
+  osc.start();
+  started = true;
+}
+
+function fromXY(xPercent, yPercent) {
+  const f1 = F1_MIN + (yPercent / 100) * (F1_MAX - F1_MIN);
+  const f2 = F2_MAX - (xPercent / 100) * (F2_MAX - F2_MIN);
+  return { f1, f2 };
+}
+
+function setFormants(f1, f2) {
+  const now = ctx.currentTime;
+  filter1.frequency.setTargetAtTime(f1, now, 0.02);
+  filter2.frequency.setTargetAtTime(f2, now, 0.02);
+}
+
+const cursor = document.getElementById("cursor");
+let dragging = false;
+
+function pointerToPad(evt) {
+  const rect = pad.getBoundingClientRect();
+  const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+  const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+  let x = ((clientX - rect.left) / rect.width) * 100;
+  let y = ((clientY - rect.top) / rect.height) * 100;
+  x = Math.max(0, Math.min(100, x));
+  y = Math.max(0, Math.min(100, y));
+  return { x, y };
+}
+
+function handleMove(evt) {
+  if (!dragging) return;
+  evt.preventDefault();
+  const { x, y } = pointerToPad(evt);
+  cursor.style.left = x + "%";
+  cursor.style.top = y + "%";
+  const { f1, f2 } = fromXY(x, y);
+  setFormants(f1, f2);
+}
+
+function handleStart(evt) {
+  ensureAudio();
+  if (ctx.state === "suspended") ctx.resume();
+  dragging = true;
+  cursor.classList.add("active");
+  gainMaster.gain.setTargetAtTime(0.25, ctx.currentTime, 0.03);
+  handleMove(evt);
+}
+
+function handleEnd() {
+  if (!dragging) return;
+  dragging = false;
+  cursor.classList.remove("active");
+  if (gainMaster) gainMaster.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
+}
+
+pad.addEventListener("mousedown", handleStart);
+pad.addEventListener("mousemove", handleMove);
+window.addEventListener("mouseup", handleEnd);
+pad.addEventListener("touchstart", handleStart, { passive: false });
+pad.addEventListener("touchmove", handleMove, { passive: false });
+pad.addEventListener("touchend", handleEnd);
+</script>
+
+</body>
+</html>
