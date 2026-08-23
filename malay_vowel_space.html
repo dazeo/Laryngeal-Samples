@@ -250,7 +250,7 @@ function handleMove(evt) {
 
 function handleStart(evt) {
   ensureAudio();
-  if (ctx.state === "suspended") ctx.resume();
+  if (ctx.state !== "running") ctx.resume(); // handles both "suspended" and iOS's "interrupted"
   dragging = true;
   cursor.classList.add("active");
   gainMaster.gain.setTargetAtTime(0.25, ctx.currentTime, 0.03);
