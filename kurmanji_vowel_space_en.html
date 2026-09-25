@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kurmanji Kurdish Vowel Space — F1/F2 Prototype</title>
+<style>
+  body {
+    background: #eae7e0;
+    color: #2a2825;
+    font-family: -apple-system, "Helvetica Neue", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+  }
+  h1 { font-size: 18px; letter-spacing: 0.05em; margin-bottom: 4px; }
+  p.sub { color: #7a7568; font-size: 13px; margin-top: 0; margin-bottom: 28px; text-align: center; max-width: 520px; }
+  #pad {
+    width: 480px;
+    height: 480px;
+    background: #e5e1d8;
+    border: 1px solid #cfcabd;
+    position: relative;
+  }
+  .vpoint {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #6b6558;
+    transform: translate(-50%, -50%);
+  }
+  .vpoint.interior {
+    width: 7px;
+    height: 7px;
+    background: #b6ae9c;
+  }
+  .vlabel {
+    position: absolute;
+    font-size: 15px;
+    transform: translate(-50%, -160%);
+    color: #4a463d;
+  }
+  .vlabel .ipa {
+    display: block;
+    font-size: 11px;
+    color: #a29c8c;
+    text-align: center;
+  }
+  .vlabel.interior { color: #a29c8c; font-size: 13px; }
+  svg#lines { position: absolute; top:0; left:0; width:100%; height:100%; }
+  #cursor {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #c76a3a;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+  #cursor.active { opacity: 0.85; }
+  #pad { touch-action: none; cursor: pointer; }
+  #hint { margin-top: 10px; font-size: 12px; color: #a29c8c; }
+  #legend {
+    margin-top: 18px;
+    font-size: 12px;
+    color: #7a7568;
+    max-width: 520px;
+    line-height: 1.6;
+  }
+  .note {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #ddd7c8;
+    border-left: 3px solid #a29c8c;
+    font-size: 11.5px;
+    color: #5c5748;
+  }
+  table { border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+  td, th { padding: 3px 10px; text-align: right; border-bottom: 1px solid #d8d3c6; }
+  th { text-align: right; color: #7a7568; font-weight: normal; }
+  td:first-child, th:first-child { text-align: left; }
+</style>
+</head>
+<body>
+
+<h1>KURMANJI KURDISH (BAHDINÎ) VOWEL SPACE (prototype)</h1>
+<p class="sub">Eight vowels, following Bijankhan &amp; Saleh's (2017) acoustic study of Bahdini
+Kurmanji: five long/peripheral (î, ê, a, o, û) and three short/central (i, e, u — IPA ɨ, ə, ʉ).
+F1 values are real measurements from that study; F2 values are typical/representative — see
+note below.</p>
+
+<div id="pad">
+  <svg id="lines"></svg>
+  <div id="cursor"></div>
+</div>
+<p id="hint">Trace the pad with your finger (or mouse) to hear the vowel change with F1/F2.</p>
+
+<div id="legend">
+  Vertical axis = F1 (tongue height). Horizontal axis = F2 (tongue front/back).<br><br>
+  The five long vowels (î, ê, a, o, û) are peripheral and connect into a pentagon. The three
+  short vowels (i, e, u — IPA ɨ, ə, ʉ) are shown as smaller, lighter interior points: the study
+  found them measurably more centralized (and shorter in duration) than their long counterparts,
+  the same short-vowel-centralization pattern seen in several other languages in this set.
+  <table id="tbl"></table>
+  <div class="note">
+    <strong>Note on the data:</strong> this page mixes two levels of reliability, and it's worth
+    being precise about which is which. <strong>F1 values are real</strong> — extracted from
+    Bijankhan, M. &amp; Saleh, S. F. (2017), <em>"Kurdish vowels – Bahdinan region acoustic
+    research,"</em> <em>Humanities Journal of University of Zakho</em> 5(1), 1–9 (University of
+    Zakho, Kurdistan Region–Iraq), based on Praat measurements of 552 recorded utterances from 23
+    speakers. <strong>F2 values could not be reliably extracted</strong> from that paper in this
+    environment (the PDF's F2 table came through corrupted/scrambled in text extraction), so the
+    F2 positions plotted here are typical/representative approximations based on the paper's own
+    articulatory descriptions of each vowel (front/central/back, rounded/unrounded). This is,
+    notably, one of the few pages in this set where genuine instrumental acoustic research on the
+    language exists and is directly credited — worth naming given how much linguistic research on
+    Kurdish has historically been suppressed or under-resourced. Treat the F1 axis as
+    measurement-grounded and the F2 axis as structural illustration.
+  </div>
+</div>
+
+<script>
+// F1: real measured means from Bijankhan & Saleh (2017), Bahdini Kurmanji, n=23 speakers.
+// F2: typical/representative, based on the paper's articulatory descriptions (see note).
+const vowels = {
+  "î": { f1: 319.52, f2: 2300, ipa: "i" },
+  "ê": { f1: 476.39, f2: 2050, ipa: "e" },
+  "a": { f1: 652.78, f2: 1100, ipa: "ɑ" },
+  "o": { f1: 534.70, f2: 800,  ipa: "o" },
+  "û": { f1: 428.50, f2: 750,  ipa: "u" },
+  "i": { f1: 568.04, f2: 1700, ipa: "ɨ", interior: true },
+  "u": { f1: 478.32, f2: 1400, ipa: "ʉ", interior: true },
+  "e": { f1: 703.52, f2: 1300, ipa: "ə", interior: true },
+};
+
+// Same normalization convention as the Laryngeal app
+const F1_MIN = 200, F1_MAX = 900;
+const F2_MIN = 600, F2_MAX = 2600;
+
+function toXY(f1, f2) {
+  const y = (f1 - F1_MIN) / (F1_MAX - F1_MIN);
+  const x = (F2_MAX - f2) / (F2_MAX - F2_MIN);
+  return { x: x * 100, y: y * 100 };
+}
+
+const pad = document.getElementById("pad");
+const svg = document.getElementById("lines");
+const perimeterOrder = ["î", "ê", "a", "o", "û"]; // pentagon, long/peripheral only
+
+let points = {};
+for (const key in vowels) {
+  const v = vowels[key];
+  const { x, y } = toXY(v.f1, v.f2);
+  points[key] = { x, y };
+
+  const dot = document.createElement("div");
+  dot.className = "vpoint" + (v.interior ? " interior" : "");
+  dot.style.left = x + "%";
+  dot.style.top = y + "%";
+  pad.appendChild(dot);
+
+  const label = document.createElement("div");
+  label.className = "vlabel" + (v.interior ? " interior" : "");
+  label.style.left = x + "%";
+  label.style.top = y + "%";
+  label.innerHTML = key + `<span class="ipa">${v.ipa}</span>`;
+  pad.appendChild(label);
+}
+
+// draw pentagon connecting the 5 long/peripheral vowels
+let pathPts = perimeterOrder.map(k => `${points[k].x}%,${points[k].y}%`);
+pathPts.push(pathPts[0]);
+const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+polyline.setAttribute("points", pathPts.map(p => {
+  const [x,y] = p.split(",");
+  return x.replace("%","") * 4.8 + "," + y.replace("%","") * 4.8;
+}).join(" "));
+polyline.setAttribute("fill", "none");
+polyline.setAttribute("stroke", "#a29c8c");
+polyline.setAttribute("stroke-width", "1");
+svg.appendChild(polyline);
+
+// table
+const tbl = document.getElementById("tbl");
+tbl.innerHTML = "<tr><th>Kurmanji</th><th>IPA</th><th>F1 (Hz, measured)</th><th>F2 (Hz, typical)</th></tr>" +
+  Object.keys(vowels).map(k => {
+    const v = vowels[k];
+    return `<tr><td>${k}</td><td>${v.ipa}</td><td>${v.f1.toFixed(0)}</td><td>${v.f2.toFixed(0)}</td></tr>`;
+  }).join("");
+
+// ---- Audio: fixed fundamental (sawtooth) through two parallel bandpass
+// filters tuned to F1/F2 — same principle as the Laryngeal app. ----
+let ctx, osc, gainMaster, filter1, filter2, started = false;
+
+function ensureAudio() {
+  if (started) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+  osc = ctx.createOscillator();
+  osc.type = "sawtooth";
+  osc.frequency.value = 110;
+
+  gainMaster = ctx.createGain();
+  gainMaster.gain.value = 0;
+
+  filter1 = ctx.createBiquadFilter();
+  filter1.type = "bandpass";
+  filter1.Q.value = 12;
+
+  filter2 = ctx.createBiquadFilter();
+  filter2.type = "bandpass";
+  filter2.Q.value = 12;
+
+  osc.connect(filter1);
+  osc.connect(filter2);
+  filter1.connect(gainMaster);
+  filter2.connect(gainMaster);
+  gainMaster.connect(ctx.destination);
+
+  osc.start();
+  started = true;
+}
+
+function fromXY(xPercent, yPercent) {
+  const f1 = F1_MIN + (yPercent / 100) * (F1_MAX - F1_MIN);
+  const f2 = F2_MAX - (xPercent / 100) * (F2_MAX - F2_MIN);
+  return { f1, f2 };
+}
+
+function setFormants(f1, f2) {
+  const now = ctx.currentTime;
+  filter1.frequency.setTargetAtTime(f1, now, 0.02);
+  filter2.frequency.setTargetAtTime(f2, now, 0.02);
+}
+
+const cursor = document.getElementById("cursor");
+let dragging = false;
+
+function pointerToPad(evt) {
+  const rect = pad.getBoundingClientRect();
+  const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+  const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+  let x = ((clientX - rect.left) / rect.width) * 100;
+  let y = ((clientY - rect.top) / rect.height) * 100;
+  x = Math.max(0, Math.min(100, x));
+  y = Math.max(0, Math.min(100, y));
+  return { x, y };
+}
+
+function handleMove(evt) {
+  if (!dragging) return;
+  evt.preventDefault();
+  const { x, y } = pointerToPad(evt);
+  cursor.style.left = x + "%";
+  cursor.style.top = y + "%";
+  const { f1, f2 } = fromXY(x, y);
+  setFormants(f1, f2);
+}
+
+function handleStart(evt) {
+  ensureAudio();
+  if (ctx.state !== "running") ctx.resume(); // handles both "suspended" and iOS's "interrupted"
+  dragging = true;
+  cursor.classList.add("active");
+  gainMaster.gain.setTargetAtTime(0.25, ctx.currentTime, 0.03);
+  handleMove(evt);
+}
+
+function handleEnd() {
+  if (!dragging) return;
+  dragging = false;
+  cursor.classList.remove("active");
+  if (gainMaster) gainMaster.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
+}
+
+pad.addEventListener("mousedown", handleStart);
+pad.addEventListener("mousemove", handleMove);
+window.addEventListener("mouseup", handleEnd);
+pad.addEventListener("touchstart", handleStart, { passive: false });
+pad.addEventListener("touchmove", handleMove, { passive: false });
+pad.addEventListener("touchend", handleEnd);
+</script>
+
+</body>
+</html>
